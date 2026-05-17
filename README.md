@@ -19,7 +19,7 @@ When the agent finishes a turn, asks for input, or goes idle — you get a real 
 ```bash
 # 1. Open Warp Terminal (notifications need a Warp-attached TTY)
 # 2. Install
-git clone https://github.com/HaD0Yun/DMUX.git ~/.dmux && ~/.dmux/install.sh
+git clone https://github.com/NomaDamas/DMUX.git ~/.dmux && ~/.dmux/install.sh
 
 # 3. Restart your agent sessions (existing sessions won't fire toasts)
 # 4. Run an agent and finish a turn — toast appears in Warp's top-right
@@ -28,7 +28,7 @@ git clone https://github.com/HaD0Yun/DMUX.git ~/.dmux && ~/.dmux/install.sh
 For unattended / AI-agent / CI use, pass `--yes`:
 
 ```bash
-git clone https://github.com/HaD0Yun/DMUX.git ~/.dmux && ~/.dmux/install.sh --yes
+git clone https://github.com/NomaDamas/DMUX.git ~/.dmux && ~/.dmux/install.sh --yes
 ```
 
 ---
@@ -50,7 +50,7 @@ git clone https://github.com/HaD0Yun/DMUX.git ~/.dmux && ~/.dmux/install.sh --ye
 ### Interactive (humans)
 
 ```bash
-git clone https://github.com/HaD0Yun/DMUX.git ~/.dmux && ~/.dmux/install.sh
+git clone https://github.com/NomaDamas/DMUX.git ~/.dmux && ~/.dmux/install.sh
 ```
 
 You'll see a "Detected agents" list and a `[Y/n]` prompt. Press Enter to accept.
@@ -59,10 +59,10 @@ You'll see a "Detected agents" list and a `[Y/n]` prompt. Press Enter to accept.
 
 ```bash
 # Flag form
-git clone https://github.com/HaD0Yun/DMUX.git ~/.dmux && ~/.dmux/install.sh --yes
+git clone https://github.com/NomaDamas/DMUX.git ~/.dmux && ~/.dmux/install.sh --yes
 
 # Env form (useful when you can't pass flags, e.g. piping into a shell)
-git clone https://github.com/HaD0Yun/DMUX.git ~/.dmux && DMUX_YES=1 ~/.dmux/install.sh
+git clone https://github.com/NomaDamas/DMUX.git ~/.dmux && DMUX_YES=1 ~/.dmux/install.sh
 ```
 
 Equivalent. Both skip the confirmation prompt.
@@ -259,6 +259,14 @@ sed -i '/# DMUX: required so OSC 9/,+1d' ~/.tmux.conf
 ## How it works (one paragraph)
 
 Each supported agent has a hook system that fires on lifecycle events (`SessionStart`, `Stop`, `PermissionRequest`, etc.). The installer wires those hooks to call `~/.dmux/dmux-event.sh`, which writes two escape sequences to a TTY: **OSC 777** (Warp's CLI Agent Protocol — adds a sidebar entry) and **OSC 9** (iTerm-style desktop toast — Warp shows it in the top-right). Codex CLI doesn't expose a `Stop` hook, so DMUX bridges through `~/.codex/config.toml`'s `notify` directive instead. To survive detached-tmux setups (e.g. OMX, tmuxinator), the hook walks fallbacks: `/dev/tty` → tmux pane TTY → attached tmux client TTY anywhere.
+
+---
+
+## Author
+
+Created by **[HaD0Yun](https://github.com/HaD0Yun)**. Maintained under the [NomaDamas](https://github.com/NomaDamas) organization.
+
+Issues and PRs welcome at [NomaDamas/DMUX](https://github.com/NomaDamas/DMUX).
 
 ---
 
