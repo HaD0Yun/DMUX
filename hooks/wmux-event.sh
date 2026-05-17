@@ -80,32 +80,17 @@ _log_line() {
     fi
 }
 
+# jq is required (install.sh refuses to install without it), so no fallback.
 _json_get() {
     local field="$1" input="$2"
     [ -z "$input" ] && return 0
-    if command -v jq >/dev/null 2>&1; then
-        printf '%s' "$input" | jq -r --arg f "$field" '
-            (.[$f]) |
-            if . == null then empty
-            elif type == "boolean" then if . then "true" else "false" end
-            elif type == "object" or type == "array" then tojson
-            else tostring end
-        ' 2>/dev/null
-    else
-        FIELD="$field" INPUT="$input" python3 - <<'PY' 2>/dev/null
-import json, os, sys
-try:
-    d = json.loads(os.environ.get('INPUT', ''))
-    if not isinstance(d, dict): sys.exit(0)
-    v = d.get(os.environ['FIELD'])
-    if v is None: sys.exit(0)
-    if isinstance(v, bool):  sys.stdout.write('true' if v else 'false')
-    elif isinstance(v, (str, int, float)): sys.stdout.write(str(v))
-    else: sys.stdout.write(json.dumps(v, separators=(',', ':')))
-except Exception:
-    pass
-PY
-    fi
+    printf '%s' "$input" | jq -r --arg f "$field" '
+        (.[$f]) |
+        if . == null then empty
+        elif type == "boolean" then if . then "true" else "false" end
+        elif type == "object" or type == "array" then tojson
+        else tostring end
+    ' 2>/dev/null
 }
 
 _truncate() {
@@ -233,64 +218,30 @@ case "$EVENT" in
         ;;
 esac
 
-if command -v jq >/dev/null 2>&1; then
-    JSON="$(jq -nc \
-        --argjson v "$PROTO_V" \
-        --arg agent "$AGENT" \
-        --arg event "$EVENT" \
-        --arg session_id "$SESSION_ID" \
-        --arg cwd "$CWD" \
-        --arg project "$PROJECT" \
-        --arg plugin_version "$PLUGIN_VERSION" \
-        --arg query "$QUERY" \
-        --arg response "$RESPONSE" \
-        --arg transcript_path "$TRANSCRIPT_PATH" \
-        --arg summary "$SUMMARY" \
-        --arg tool_name "$TOOL_NAME" \
-        --argjson tool_input "${TOOL_INPUT_JSON:-null}" \
-        '{v:$v, agent:$agent, event:$event, session_id:$session_id, cwd:$cwd, project:$project}
-         + (if $event == "session_start" then {plugin_version:$plugin_version} else {} end)
-         + (if $query != ""           then {query:$query}                       else {} end)
-         + (if $response != ""        then {response:$response}                 else {} end)
-         + (if $transcript_path != "" then {transcript_path:$transcript_path}   else {} end)
-         + (if $summary != ""         then {summary:$summary}                   else {} end)
-         + (if $tool_name != ""       then {tool_name:$tool_name}               else {} end)
-         + (if $tool_input != null    then {tool_input:$tool_input}             else {} end)
-        ' 2>/dev/null)"
-else
-    JSON="$(
-        PROTO_V="$PROTO_V" AGENT="$AGENT" EVENT="$EVENT" \
-        SESSION_ID="$SESSION_ID" CWD="$CWD" PROJECT="$PROJECT" \
-        PLUGIN_VERSION="$PLUGIN_VERSION" \
-        QUERY="$QUERY" RESPONSE="$RESPONSE" TRANSCRIPT_PATH="$TRANSCRIPT_PATH" \
-        SUMMARY="$SUMMARY" TOOL_NAME="$TOOL_NAME" TOOL_INPUT_JSON="$TOOL_INPUT_JSON" \
-        python3 - <<'PY' 2>/dev/null
-import json, os, sys
-out = {
-    "v": int(os.environ.get("PROTO_V", "1") or "1"),
-    "agent":      os.environ.get("AGENT", ""),
-    "event":      os.environ.get("EVENT", ""),
-    "session_id": os.environ.get("SESSION_ID", ""),
-    "cwd":        os.environ.get("CWD", ""),
-    "project":    os.environ.get("PROJECT", ""),
-}
-if out["event"] == "session_start":
-    pv = os.environ.get("PLUGIN_VERSION", "")
-    if pv: out["plugin_version"] = pv
-for k in ("query", "response", "transcript_path", "summary", "tool_name"):
-    v = os.environ.get(k.upper(), "")
-    if v: out[k] = v
-ti = os.environ.get("TOOL_INPUT_JSON", "")
-if ti:
-    try:
-        parsed = json.loads(ti)
-        out["tool_input"] = parsed
-    except Exception:
-        pass
-sys.stdout.write(json.dumps(out, separators=(",", ":"), ensure_ascii=False))
-PY
-    )"
-fi
+# jq required; install.sh enforces this.
+JSON="$(jq -nc \
+    --argjson v "$PROTO_V" \
+    --arg agent "$AGENT" \
+    --arg event "$EVENT" \
+    --arg session_id "$SESSION_ID" \
+    --arg cwd "$CWD" \
+    --arg project "$PROJECT" \
+    --arg plugin_version "$PLUGIN_VERSION" \
+    --arg query "$QUERY" \
+    --arg response "$RESPONSE" \
+    --arg transcript_path "$TRANSCRIPT_PATH" \
+    --arg summary "$SUMMARY" \
+    --arg tool_name "$TOOL_NAME" \
+    --argjson tool_input "${TOOL_INPUT_JSON:-null}" \
+    '{v:$v, agent:$agent, event:$event, session_id:$session_id, cwd:$cwd, project:$project}
+     + (if $event == "session_start" then {plugin_version:$plugin_version} else {} end)
+     + (if $query != ""           then {query:$query}                       else {} end)
+     + (if $response != ""        then {response:$response}                 else {} end)
+     + (if $transcript_path != "" then {transcript_path:$transcript_path}   else {} end)
+     + (if $summary != ""         then {summary:$summary}                   else {} end)
+     + (if $tool_name != ""       then {tool_name:$tool_name}               else {} end)
+     + (if $tool_input != null    then {tool_input:$tool_input}             else {} end)
+    ' 2>/dev/null)"
 
 if [ -z "$JSON" ]; then
     _log_line "skip=json_build_failed"

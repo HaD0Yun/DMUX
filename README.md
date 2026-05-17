@@ -41,7 +41,7 @@ git clone https://github.com/NomaDamas/warpalert.git ~/.wmux && ~/.wmux/install.
 |---|---|
 | **Warp Terminal**, running, and the install must happen *inside* a Warp tab | Wmux emits OSC 9 + OSC 777 sequences that only Warp interprets. The installer checks `WARP_CLI_AGENT_PROTOCOL_VERSION` and `WARP_CLIENT_VERSION`. If you install from a non-Warp terminal, the hooks still get wired but they will silently no-op. |
 | `bash` ≥ 4 | Used by installer and event hook. |
-| `jq` | Used by installer for safe JSON config merging. `apt install jq` / `brew install jq` / `pacman -S jq`. |
+| `jq` | Required. Used by the installer for safe JSON config merging, and by the event hook to build the OSC 777 payload at runtime. `apt install jq` / `brew install jq` / `pacman -S jq`. |
 | `tmux` ≥ 3.3 (only if you run agents inside tmux) | Installer auto-appends `set -g allow-passthrough on` to `~/.tmux.conf` and live-applies it to every running tmux server. Without passthrough, tmux silently drops the OSC sequences. |
 | At least one supported agent installed | Claude Code (`~/.claude`), Codex CLI (`~/.codex`), OpenCode (`~/.config/opencode`), Gemini CLI (`~/.gemini`). The installer auto-detects which exist and only wires those. |
 
