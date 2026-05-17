@@ -10,30 +10,30 @@
 #   1. The user's existing `notify` handler (e.g. oh-my-codex's notify-hook.js)
 #      — synchronously, because state-bearing handlers must finish before the
 #      next turn begins.
-#   2. warp-agent-event.sh — fire-and-forget, so a Warp glitch never blocks
+#   2. dmux-event.sh — fire-and-forget, so a Warp glitch never blocks
 #      the codex turn loop.
 #
 # Wire it into ~/.codex/config.toml like:
-#   notify = ["/path/to/warp-agent-hooks/hooks/codex-notify-bridge.sh"]
+#   notify = ["/path/to/DMUX/hooks/dmux-codex-bridge.sh"]
 #
 # If the user wants the bridge to chain to a previous notify handler, set:
-#   WARP_AGENT_CODEX_NOTIFY_INNER=/path/to/previous/notify-script.js
-# and (optionally) WARP_AGENT_CODEX_NOTIFY_INNER_INTERPRETER=node
+#   DMUX_CODEX_INNER=/path/to/previous/notify-script.js
+# and (optionally) DMUX_CODEX_INNER_INTERP=node
 # (defaults to node when the inner path ends with .js, otherwise direct exec).
 
 set -u
 exec 2>/dev/null
 
-WARP_HOOK="${WARP_AGENT_HOOK:-$HOME/.warp-agent-hooks/warp-agent-event.sh}"
+WARP_HOOK="${DMUX_HOOK:-$HOME/.dmux/dmux-event.sh}"
 if [ ! -x "$WARP_HOOK" ]; then
-    ALT="$(dirname "$(readlink -f "$0")")/warp-agent-event.sh"
+    ALT="$(dirname "$(readlink -f "$0")")/dmux-event.sh"
     if [ -x "$ALT" ]; then
         WARP_HOOK="$ALT"
     fi
 fi
 
-INNER_HOOK="${WARP_AGENT_CODEX_NOTIFY_INNER:-}"
-INNER_INTERP="${WARP_AGENT_CODEX_NOTIFY_INNER_INTERPRETER:-}"
+INNER_HOOK="${DMUX_CODEX_INNER:-}"
+INNER_INTERP="${DMUX_CODEX_INNER_INTERP:-}"
 
 PAYLOAD="${!#}"
 

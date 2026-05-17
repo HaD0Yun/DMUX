@@ -1,5 +1,5 @@
 #!/bin/bash
-# warp-agent-hooks: emit Warp Terminal Agent Protocol events for any CLI agent.
+# DMUX — Warp Terminal toasts when AI CLI agents finish a turn.
 #
 # Wraps the Warp CLI Agent Protocol (OSC 777 with title "warp://cli-agent")
 # plus iTerm-style OSC 9 desktop notifications so the user sees both a
@@ -13,7 +13,7 @@
 #   - Gemini CLI    (~/.gemini/settings.json hooks block)
 #   - any other agent that can exec a script on lifecycle events
 #
-# Usage: warp-agent-event.sh <event> [agent]
+# Usage: dmux-event.sh <event> [agent]
 #   event ∈ {session_start | stop | permission_request | idle_prompt
 #            | prompt_submit | tool_complete}
 #   agent ∈ {claude | codex | gemini | opencode | amp | droid | copilot | ...}
@@ -30,13 +30,13 @@
 # Behavior:
 #   • Writes OSC 777 + OSC 9 to /dev/tty (silent on failure)
 #   • stdout/stderr stay empty (most agent CLIs parse hook stdout as control)
-#   • Debug log at $WARP_AGENT_LOG_FILE (rotates at 1 MB)
+#   • Debug log at $DMUX_LOG_FILE (rotates at 1 MB)
 #
 # Silently no-ops (still logs the reason) when:
 #   • Not running in Warp (WARP_CLI_AGENT_PROTOCOL_VERSION or
 #     WARP_CLIENT_VERSION env var unset)
 #   • Stdin payload has stop_hook_active=true (re-entrant stop hook)
-#   • Event is "stop" and WARP_AGENT_SUPPRESS_STOP=1 (or any OMX_TEAM_*
+#   • Event is "stop" and DMUX_SUPPRESS_STOP=1 (or any OMX_TEAM_*
 #     env var is set — loop-suppression for oh-my-codex team mode)
 #   • The event name isn't in the v1 recognized set
 
@@ -46,11 +46,11 @@ exec 2>/dev/null
 PLUGIN_VERSION="0.3.0"
 PLUGIN_PROTO_V=1
 
-WARP_AGENT_LOG_FILE="${WARP_AGENT_LOG_FILE:-$HOME/.warp-agent-hooks/warp-agent-event.log}"
-WARP_AGENT_LOG_MAX_BYTES="${WARP_AGENT_LOG_MAX_BYTES:-1048576}"
-WARP_AGENT_LOG_LOCK="${WARP_AGENT_LOG_FILE}.lock"
+DMUX_LOG_FILE="${DMUX_LOG_FILE:-$HOME/.dmux/dmux.log}"
+DMUX_LOG_MAX_BYTES="${DMUX_LOG_MAX_BYTES:-1048576}"
+DMUX_LOG_LOCK="${DMUX_LOG_FILE}.lock"
 
-mkdir -p "$(dirname "$WARP_AGENT_LOG_FILE")" 2>/dev/null
+mkdir -p "$(dirname "$DMUX_LOG_FILE")" 2>/dev/null
 
 EVENT="${1:-}"
 AGENT="${2:-codex}"
@@ -58,7 +58,7 @@ AGENT="${2:-codex}"
 HOOK_INPUT="$(cat 2>/dev/null || true)"
 
 _log_line() {
-    local dir="${WARP_AGENT_LOG_FILE%/*}"
+    local dir="${DMUX_LOG_FILE%/*}"
     [ -d "$dir" ] || return 0
     local line
     line="$(printf '[%s] agent=%s event=%s %s' \
@@ -66,17 +66,17 @@ _log_line() {
     if command -v flock >/dev/null 2>&1; then
         (
             flock -w 1 9 || exit 0
-            if [ -f "$WARP_AGENT_LOG_FILE" ]; then
+            if [ -f "$DMUX_LOG_FILE" ]; then
                 local sz
-                sz=$(wc -c <"$WARP_AGENT_LOG_FILE" 2>/dev/null || echo 0)
-                if [ "${sz:-0}" -gt "$WARP_AGENT_LOG_MAX_BYTES" ] 2>/dev/null; then
-                    mv -f "$WARP_AGENT_LOG_FILE" "${WARP_AGENT_LOG_FILE}.1" 2>/dev/null || true
+                sz=$(wc -c <"$DMUX_LOG_FILE" 2>/dev/null || echo 0)
+                if [ "${sz:-0}" -gt "$DMUX_LOG_MAX_BYTES" ] 2>/dev/null; then
+                    mv -f "$DMUX_LOG_FILE" "${DMUX_LOG_FILE}.1" 2>/dev/null || true
                 fi
             fi
-            printf '%s\n' "$line" >>"$WARP_AGENT_LOG_FILE" 2>/dev/null || true
-        ) 9>"$WARP_AGENT_LOG_LOCK"
+            printf '%s\n' "$line" >>"$DMUX_LOG_FILE" 2>/dev/null || true
+        ) 9>"$DMUX_LOG_LOCK"
     else
-        printf '%s\n' "$line" >>"$WARP_AGENT_LOG_FILE" 2>/dev/null || true
+        printf '%s\n' "$line" >>"$DMUX_LOG_FILE" 2>/dev/null || true
     fi
 }
 
@@ -140,9 +140,9 @@ fi
 
 # Loop-suppression for orchestrated team modes (e.g. oh-my-codex team mode
 # loops the leader's stop hook 20-50× per task; sending each to Warp = flood).
-# Generic override: set WARP_AGENT_SUPPRESS_STOP=1 from any loop runner.
+# Generic override: set DMUX_SUPPRESS_STOP=1 from any loop runner.
 if [ "$EVENT" = "stop" ]; then
-    if [ "${WARP_AGENT_SUPPRESS_STOP:-}" = "1" ] || \
+    if [ "${DMUX_SUPPRESS_STOP:-}" = "1" ] || \
        [ -n "${OMX_TEAM_WORKER:-}" ] || \
        [ -n "${OMX_TEAM_INTERNAL_WORKER:-}" ] || \
        [ -n "${OMX_TEAM_STATE_ROOT:-}" ] || \
@@ -321,12 +321,12 @@ wrap_for_tmux() {
 WRITE_ERR=""
 emit_to_tty() {
     local payload="$1"
-    { printf '%s' "$payload" > "$OUT_TTY"; } 2>/tmp/.warp-agent-write-err.$$
+    { printf '%s' "$payload" > "$OUT_TTY"; } 2>/tmp/.dmux-write-err.$$
     local rc=$?
-    if [ -s /tmp/.warp-agent-write-err.$$ ]; then
-        WRITE_ERR="$(head -1 /tmp/.warp-agent-write-err.$$)"
+    if [ -s /tmp/.dmux-write-err.$$ ]; then
+        WRITE_ERR="$(head -1 /tmp/.dmux-write-err.$$)"
     fi
-    rm -f /tmp/.warp-agent-write-err.$$
+    rm -f /tmp/.dmux-write-err.$$
     return $rc
 }
 
@@ -335,9 +335,9 @@ emit_to_tty "$(wrap_for_tmux "$OSC777")"
 
 # OSC 9 desktop toast bodies. Customizable via env vars; substitute {project}
 # and {agent} placeholders.
-TOAST_STOP_TEMPLATE="${WARP_AGENT_TOAST_STOP:-✅ {project} — {agent} done}"
-TOAST_PERMISSION_TEMPLATE="${WARP_AGENT_TOAST_PERMISSION:-⚠️ {project} — {agent} needs input}"
-TOAST_IDLE_TEMPLATE="${WARP_AGENT_TOAST_IDLE:-💬 {project} — {agent} waiting}"
+TOAST_STOP_TEMPLATE="${DMUX_TOAST_STOP:-✅ {project} — {agent} done}"
+TOAST_PERMISSION_TEMPLATE="${DMUX_TOAST_PERMISSION:-⚠️ {project} — {agent} needs input}"
+TOAST_IDLE_TEMPLATE="${DMUX_TOAST_IDLE:-💬 {project} — {agent} waiting}"
 
 _render_toast() {
     local tpl="$1"
