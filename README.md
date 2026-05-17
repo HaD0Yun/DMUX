@@ -1,10 +1,10 @@
-# DMUX
+# Wmux
 
-🔔 **Warp Terminal toasts when your AI agent finishes.**
+### 🔔 Warp alert — native toasts when your AI agent finishes a turn.
 
 Works with **Claude Code**, **Codex CLI**, **OpenCode**, and **Gemini CLI**.
 
-When the agent finishes a turn, asks for input, or goes idle — you get a real OS notification in Warp's top-right corner.
+When the agent finishes a turn, asks for input, or goes idle, you get a real OS notification in Warp's top-right corner. No polling, no daemons — just the agent's own lifecycle hooks firing OSC sequences that Warp natively interprets.
 
 |   |   |
 |---|---|
@@ -19,7 +19,7 @@ When the agent finishes a turn, asks for input, or goes idle — you get a real 
 ```bash
 # 1. Open Warp Terminal (notifications need a Warp-attached TTY)
 # 2. Install
-git clone https://github.com/NomaDamas/DMUX.git ~/.dmux && ~/.dmux/install.sh
+git clone https://github.com/NomaDamas/warpalert.git ~/.wmux && ~/.wmux/install.sh
 
 # 3. Restart your agent sessions (existing sessions won't fire toasts)
 # 4. Run an agent and finish a turn — toast appears in Warp's top-right
@@ -28,7 +28,7 @@ git clone https://github.com/NomaDamas/DMUX.git ~/.dmux && ~/.dmux/install.sh
 For unattended / AI-agent / CI use, pass `--yes`:
 
 ```bash
-git clone https://github.com/NomaDamas/DMUX.git ~/.dmux && ~/.dmux/install.sh --yes
+git clone https://github.com/NomaDamas/warpalert.git ~/.wmux && ~/.wmux/install.sh --yes
 ```
 
 ---
@@ -37,7 +37,7 @@ git clone https://github.com/NomaDamas/DMUX.git ~/.dmux && ~/.dmux/install.sh --
 
 | Requirement | Why |
 |---|---|
-| **Warp Terminal**, running, and the install must happen *inside* a Warp tab | DMUX emits OSC 9 + OSC 777 sequences that only Warp interprets. The installer checks `WARP_CLI_AGENT_PROTOCOL_VERSION` and `WARP_CLIENT_VERSION`. If you install from a non-Warp terminal, the hooks still get wired but they will silently no-op. |
+| **Warp Terminal**, running, and the install must happen *inside* a Warp tab | Wmux emits OSC 9 + OSC 777 sequences that only Warp interprets. The installer checks `WARP_CLI_AGENT_PROTOCOL_VERSION` and `WARP_CLIENT_VERSION`. If you install from a non-Warp terminal, the hooks still get wired but they will silently no-op. |
 | `bash` ≥ 4 | Used by installer and event hook. |
 | `jq` | Used by installer for safe JSON config merging. `apt install jq` / `brew install jq` / `pacman -S jq`. |
 | `tmux` ≥ 3.3 (only if you run agents inside tmux) | Installer auto-appends `set -g allow-passthrough on` to `~/.tmux.conf` and live-applies it to every running tmux server. Without passthrough, tmux silently drops the OSC sequences. |
@@ -50,7 +50,7 @@ git clone https://github.com/NomaDamas/DMUX.git ~/.dmux && ~/.dmux/install.sh --
 ### Interactive (humans)
 
 ```bash
-git clone https://github.com/NomaDamas/DMUX.git ~/.dmux && ~/.dmux/install.sh
+git clone https://github.com/NomaDamas/warpalert.git ~/.wmux && ~/.wmux/install.sh
 ```
 
 You'll see a "Detected agents" list and a `[Y/n]` prompt. Press Enter to accept.
@@ -59,10 +59,10 @@ You'll see a "Detected agents" list and a `[Y/n]` prompt. Press Enter to accept.
 
 ```bash
 # Flag form
-git clone https://github.com/NomaDamas/DMUX.git ~/.dmux && ~/.dmux/install.sh --yes
+git clone https://github.com/NomaDamas/warpalert.git ~/.wmux && ~/.wmux/install.sh --yes
 
 # Env form (useful when you can't pass flags, e.g. piping into a shell)
-git clone https://github.com/NomaDamas/DMUX.git ~/.dmux && DMUX_YES=1 ~/.dmux/install.sh
+git clone https://github.com/NomaDamas/warpalert.git ~/.wmux && WMUX_YES=1 ~/.wmux/install.sh
 ```
 
 Equivalent. Both skip the confirmation prompt.
@@ -71,17 +71,17 @@ Equivalent. Both skip the confirmation prompt.
 
 ## What the installer modifies
 
-The installer touches **only** the agents it detects. Every file it writes gets a timestamped `.bak-dmux-YYYYMMDD-HHMMSS` backup next to it before being changed, and uninstall restores from that record.
+The installer touches **only** the agents it detects. Every file it writes gets a timestamped `.bak-wmux-YYYYMMDD-HHMMSS` backup next to it before being changed, and uninstall restores from that record.
 
 | Path | Change | Backed up? |
 |---|---|---|
-| `~/.claude/settings.json` | Adds `SessionStart`, `Stop`, `Notification`, `PermissionRequest` hooks pointing at `~/.dmux/dmux-event.sh`. | Yes |
+| `~/.claude/settings.json` | Adds `SessionStart`, `Stop`, `Notification`, `PermissionRequest` hooks pointing at `~/.wmux/wmux-event.sh`. | Yes |
 | `~/.codex/hooks.json` | Adds `SessionStart` and `PermissionRequest` hooks. | Yes |
-| `~/.codex/config.toml` | Replaces the `notify = [...]` line with the DMUX bridge. The previous value is parsed and persisted to `~/.dmux/state/codex-inner.argv` so the prior notify handler keeps firing automatically (see [Codex notify chaining](#codex-notify-chaining)). | Yes |
+| `~/.codex/config.toml` | Replaces the `notify = [...]` line with the Wmux bridge. The previous value is parsed and persisted to `~/.wmux/state/codex-inner.argv` so the prior notify handler keeps firing automatically (see [Codex notify chaining](#codex-notify-chaining)). | Yes |
 | `~/.config/opencode/opencode.json` | Adds `SessionStart` and `Stop` hooks. | Yes |
 | `~/.gemini/settings.json` | Adds `session_start`, `stop`, `user_prompt_submit` hooks. | Yes |
 | `~/.tmux.conf` (only if `tmux` is on PATH) | Appends `set -g allow-passthrough on` once. Idempotent — re-running the installer will not duplicate the line. | Yes |
-| `~/.dmux/state/` | Created. Holds `previous-codex-notify.txt` and `codex-inner.argv` for uninstall + auto-chain. | n/a |
+| `~/.wmux/state/` | Created. Holds `previous-codex-notify.txt` and `codex-inner.argv` for uninstall + auto-chain. | n/a |
 | Live tmux servers | `tmux set -g allow-passthrough on` is invoked on every active tmux socket so the change takes effect immediately. | n/a (runtime only) |
 
 **Your other hooks in those files are preserved.** The installer uses `jq` for JSON files so existing entries are merged, not overwritten.
@@ -95,7 +95,7 @@ After install, the installer prints a "Heads up" section listing any agent proce
 ### 1. Config wiring check
 
 ```bash
-grep -l dmux ~/.claude/settings.json ~/.codex/hooks.json ~/.codex/config.toml \
+grep -l wmux ~/.claude/settings.json ~/.codex/hooks.json ~/.codex/config.toml \
             ~/.config/opencode/opencode.json ~/.gemini/settings.json 2>/dev/null
 ```
 
@@ -105,8 +105,8 @@ Should list one line per detected agent.
 
 ```bash
 # Must run from a real terminal. Piped/subshell calls won't have /dev/tty.
-~/.dmux/hooks/dmux-event.sh stop claude < /dev/tty
-tail -1 ~/.dmux/dmux.log
+~/.wmux/hooks/wmux-event.sh stop claude < /dev/tty
+tail -1 ~/.wmux/wmux.log
 ```
 
 Expected log line:
@@ -161,28 +161,28 @@ All optional. Set env vars before launching the agent (or in `~/.bashrc` / `~/.z
 `{project}` is replaced with the agent's CWD basename. `{agent}` is replaced with the agent name (`claude`, `codex`, `opencode`, `gemini`).
 
 ```bash
-export DMUX_TOAST_STOP='✅ {project} — {agent} done'                  # default
-export DMUX_TOAST_PERMISSION='⚠️ {project} — {agent} needs input'    # default
-export DMUX_TOAST_IDLE='💬 {project} — {agent} waiting'              # default
+export WMUX_TOAST_STOP='✅ {project} — {agent} done'                  # default
+export WMUX_TOAST_PERMISSION='⚠️ {project} — {agent} needs input'    # default
+export WMUX_TOAST_IDLE='💬 {project} — {agent} waiting'              # default
 ```
 
 ### Codex notify chaining
 
-If you already had `notify = [...]` set in `~/.codex/config.toml` before install (for example, oh-my-codex users), the installer parses your previous argv and persists it to `~/.dmux/state/codex-inner.argv`. The DMUX bridge auto-chains to it on every invocation, so **your previous notify handler keeps firing alongside DMUX with no manual setup.**
+If you already had `notify = [...]` set in `~/.codex/config.toml` before install (for example, oh-my-codex users), the installer parses your previous argv and persists it to `~/.wmux/state/codex-inner.argv`. The Wmux bridge auto-chains to it on every invocation, so **your previous notify handler keeps firing alongside Wmux with no manual setup.**
 
 Override:
 
 ```bash
 # Force a specific inner handler (overrides the auto-chain state file)
-export DMUX_CODEX_INNER=/path/to/your/notify-hook.js
-export DMUX_CODEX_INNER_INTERP=node   # optional; inferred from .js suffix
+export WMUX_CODEX_INNER=/path/to/your/notify-hook.js
+export WMUX_CODEX_INNER_INTERP=node   # optional; inferred from .js suffix
 ```
 
 ### Logging
 
 ```bash
-export DMUX_LOG_FILE="$HOME/.dmux/dmux.log"   # default
-export DMUX_LOG_MAX_BYTES=131072              # default; rotates to .1 above this
+export WMUX_LOG_FILE="$HOME/.wmux/wmux.log"   # default
+export WMUX_LOG_MAX_BYTES=131072              # default; rotates to .1 above this
 ```
 
 ---
@@ -191,15 +191,15 @@ export DMUX_LOG_MAX_BYTES=131072              # default; rotates to .1 above thi
 
 ### Toast doesn't appear in Warp
 
-Walk this list top to bottom — it matches the order DMUX needs things to work.
+Walk this list top to bottom — it matches the order Wmux needs things to work.
 
 | Check | Command | Fix |
 |---|---|---|
 | You're actually inside Warp | `echo $WARP_CLIENT_VERSION` should print a version | Reopen the shell from Warp |
-| Hooks are wired | `grep -l dmux ~/.claude/settings.json ~/.codex/hooks.json ~/.codex/config.toml ~/.config/opencode/opencode.json` | Re-run `~/.dmux/install.sh` |
-| Agent process was started **after** install | `pgrep -af '(^|/)(claude\|codex\|opencode\|gemini)'` and compare start time to `stat ~/.dmux/install.sh` | Restart the agent (see above) |
+| Hooks are wired | `grep -l wmux ~/.claude/settings.json ~/.codex/hooks.json ~/.codex/config.toml ~/.config/opencode/opencode.json` | Re-run `~/.wmux/install.sh` |
+| Agent process was started **after** install | `pgrep -af '(^|/)(claude\|codex\|opencode\|gemini)'` and compare start time to `stat ~/.wmux/install.sh` | Restart the agent (see above) |
 | tmux passthrough is on | `tmux show-options -g allow-passthrough` should print `allow-passthrough on` | Re-run the installer, or run `tmux set -g allow-passthrough on` and add it to `~/.tmux.conf` |
-| Hook actually fires | `tail -f ~/.dmux/dmux.log` while you make the agent end a turn | If no log line appears: hook not wired or agent not restarted. If `emit=fail`: see next row. |
+| Hook actually fires | `tail -f ~/.wmux/wmux.log` while you make the agent end a turn | If no log line appears: hook not wired or agent not restarted. If `emit=fail`: see next row. |
 | OSC reached a real Warp TTY | Find the log line for your test event: `tty_src=` field | If `dev_tty_unreachable`: no Warp-attached TTY was found anywhere. Either run the agent inside a Warp-attached pane, or `tmux attach -t <session>` from Warp before triggering. |
 
 ### `emit=fail tty=/dev/tty err=... No such device`
@@ -207,20 +207,20 @@ Walk this list top to bottom — it matches the order DMUX needs things to work.
 You ran the smoke test from a piped subshell (`<<<` or `echo ... |`). That closes `/dev/tty`. Use the documented form:
 
 ```bash
-~/.dmux/hooks/dmux-event.sh stop claude < /dev/tty
+~/.wmux/hooks/wmux-event.sh stop claude < /dev/tty
 ```
 
 ### Codex's previous notify handler stopped firing
 
-The bridge auto-chains via `~/.dmux/state/codex-inner.argv`. If that file is missing or empty, the installer failed to parse your previous `notify = [...]` line. Restore it manually:
+The bridge auto-chains via `~/.wmux/state/codex-inner.argv`. If that file is missing or empty, the installer failed to parse your previous `notify = [...]` line. Restore it manually:
 
 ```bash
 # Inspect what the installer captured
-cat ~/.dmux/state/codex-inner.argv
+cat ~/.wmux/state/codex-inner.argv
 
 # Or override via env var (one token per argv element, joined by spaces)
-export DMUX_CODEX_INNER=/your/handler.js
-export DMUX_CODEX_INNER_INTERP=node
+export WMUX_CODEX_INNER=/your/handler.js
+export WMUX_CODEX_INNER_INTERP=node
 ```
 
 ### "Already-running agents detected" warning at install time
@@ -232,33 +232,33 @@ This is expected if you had any agent running before install. Restart those proc
 ## Uninstall
 
 ```bash
-~/.dmux/install.sh --uninstall
+~/.wmux/install.sh --uninstall
 ```
 
 What it does:
 
-1. Removes DMUX entries from every detected agent's config (Claude / Codex / OpenCode / Gemini).
-2. Restores `~/.codex/config.toml`'s `notify = [...]` to the previous value (recorded at install time in `~/.dmux/state/previous-codex-notify.txt`).
-3. Removes `~/.dmux/state/codex-inner.argv` (auto-chain state).
+1. Removes Wmux entries from every detected agent's config (Claude / Codex / OpenCode / Gemini).
+2. Restores `~/.codex/config.toml`'s `notify = [...]` to the previous value (recorded at install time in `~/.wmux/state/previous-codex-notify.txt`).
+3. Removes `~/.wmux/state/codex-inner.argv` (auto-chain state).
 4. Leaves your other hooks alone.
 
 Then delete the install dir:
 
 ```bash
-rm -rf ~/.dmux
+rm -rf ~/.wmux
 ```
 
 The `~/.tmux.conf` `allow-passthrough` line is **not** removed automatically — it's a generally useful setting and uninstall keeps it. Remove it manually if you want:
 
 ```bash
-sed -i '/# DMUX: required so OSC 9/,+1d' ~/.tmux.conf
+sed -i '/# Wmux: required so OSC 9/,+1d' ~/.tmux.conf
 ```
 
 ---
 
 ## How it works (one paragraph)
 
-Each supported agent has a hook system that fires on lifecycle events (`SessionStart`, `Stop`, `PermissionRequest`, etc.). The installer wires those hooks to call `~/.dmux/dmux-event.sh`, which writes two escape sequences to a TTY: **OSC 777** (Warp's CLI Agent Protocol — adds a sidebar entry) and **OSC 9** (iTerm-style desktop toast — Warp shows it in the top-right). Codex CLI doesn't expose a `Stop` hook, so DMUX bridges through `~/.codex/config.toml`'s `notify` directive instead. To survive detached-tmux setups (e.g. OMX, tmuxinator), the hook walks fallbacks: `/dev/tty` → tmux pane TTY → attached tmux client TTY anywhere.
+Each supported agent has a hook system that fires on lifecycle events (`SessionStart`, `Stop`, `PermissionRequest`, etc.). The installer wires those hooks to call `~/.wmux/wmux-event.sh`, which writes two escape sequences to a TTY: **OSC 777** (Warp's CLI Agent Protocol — adds a sidebar entry) and **OSC 9** (iTerm-style desktop toast — Warp shows it in the top-right). Codex CLI doesn't expose a `Stop` hook, so Wmux bridges through `~/.codex/config.toml`'s `notify` directive instead. To survive detached-tmux setups (e.g. OMX, tmuxinator), the hook walks fallbacks: `/dev/tty` → tmux pane TTY → attached tmux client TTY anywhere.
 
 ---
 
@@ -266,7 +266,7 @@ Each supported agent has a hook system that fires on lifecycle events (`SessionS
 
 Created by **[HaD0Yun](https://github.com/HaD0Yun)**. Maintained under the [NomaDamas](https://github.com/NomaDamas) organization.
 
-Issues and PRs welcome at [NomaDamas/DMUX](https://github.com/NomaDamas/DMUX).
+Issues and PRs welcome at [NomaDamas/warpalert](https://github.com/NomaDamas/warpalert).
 
 ---
 

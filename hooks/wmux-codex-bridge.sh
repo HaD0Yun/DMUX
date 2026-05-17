@@ -10,31 +10,31 @@
 #   1. The user's existing `notify` handler (e.g. oh-my-codex's notify-hook.js)
 #      — synchronously, because state-bearing handlers must finish before the
 #      next turn begins.
-#   2. dmux-event.sh — fire-and-forget, so a Warp glitch never blocks
+#   2. wmux-event.sh — fire-and-forget, so a Warp glitch never blocks
 #      the codex turn loop.
 #
 # Wire it into ~/.codex/config.toml like:
-#   notify = ["/path/to/DMUX/hooks/dmux-codex-bridge.sh"]
+#   notify = ["/path/to/Wmux/hooks/wmux-codex-bridge.sh"]
 #
 # If the user wants the bridge to chain to a previous notify handler, set:
-#   DMUX_CODEX_INNER=/path/to/previous/notify-script.js
-# and (optionally) DMUX_CODEX_INNER_INTERP=node
+#   WMUX_CODEX_INNER=/path/to/previous/notify-script.js
+# and (optionally) WMUX_CODEX_INNER_INTERP=node
 # (defaults to node when the inner path ends with .js, otherwise direct exec).
 
 set -u
 exec 2>/dev/null
 
-WARP_HOOK="${DMUX_HOOK:-$HOME/.dmux/dmux-event.sh}"
+WARP_HOOK="${WMUX_HOOK:-$HOME/.wmux/wmux-event.sh}"
 if [ ! -x "$WARP_HOOK" ]; then
-    ALT="$(dirname "$(readlink -f "$0")")/dmux-event.sh"
+    ALT="$(dirname "$(readlink -f "$0")")/wmux-event.sh"
     if [ -x "$ALT" ]; then
         WARP_HOOK="$ALT"
     fi
 fi
 
-INNER_HOOK="${DMUX_CODEX_INNER:-}"
-INNER_INTERP="${DMUX_CODEX_INNER_INTERP:-}"
-INNER_ARGV_FILE="${DMUX_CODEX_INNER_ARGV_FILE:-$HOME/.dmux/state/codex-inner.argv}"
+INNER_HOOK="${WMUX_CODEX_INNER:-}"
+INNER_INTERP="${WMUX_CODEX_INNER_INTERP:-}"
+INNER_ARGV_FILE="${WMUX_CODEX_INNER_ARGV_FILE:-$HOME/.wmux/state/codex-inner.argv}"
 
 PAYLOAD="${!#}"
 
@@ -52,7 +52,7 @@ if [ -n "$INNER_HOOK" ] && [ -f "$INNER_HOOK" ]; then
     INNER_PID=$!
 elif [ -s "$INNER_ARGV_FILE" ]; then
     # Auto-chain: installer persisted the previous notify argv tokens here,
-    # so users don't have to export DMUX_CODEX_INNER themselves.
+    # so users don't have to export WMUX_CODEX_INNER themselves.
     INNER_ARGV=()
     while IFS= read -r _line || [ -n "$_line" ]; do
         [ -z "$_line" ] && continue

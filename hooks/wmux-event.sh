@@ -1,5 +1,5 @@
 #!/bin/bash
-# DMUX — Warp Terminal toasts when AI CLI agents finish a turn.
+# Wmux — Warp Terminal toasts when AI CLI agents finish a turn.
 #
 # Wraps the Warp CLI Agent Protocol (OSC 777 with title "warp://cli-agent")
 # plus iTerm-style OSC 9 desktop notifications so the user sees both a
@@ -13,7 +13,7 @@
 #   - Gemini CLI    (~/.gemini/settings.json hooks block)
 #   - any other agent that can exec a script on lifecycle events
 #
-# Usage: dmux-event.sh <event> [agent]
+# Usage: wmux-event.sh <event> [agent]
 #   event ∈ {session_start | stop | permission_request | idle_prompt
 #            | prompt_submit | tool_complete}
 #   agent ∈ {claude | codex | gemini | opencode | amp | droid | copilot | ...}
@@ -30,13 +30,13 @@
 # Behavior:
 #   • Writes OSC 777 + OSC 9 to /dev/tty (silent on failure)
 #   • stdout/stderr stay empty (most agent CLIs parse hook stdout as control)
-#   • Debug log at $DMUX_LOG_FILE (rotates at 1 MB)
+#   • Debug log at $WMUX_LOG_FILE (rotates at 1 MB)
 #
 # Silently no-ops (still logs the reason) when:
 #   • Not running in Warp (WARP_CLI_AGENT_PROTOCOL_VERSION or
 #     WARP_CLIENT_VERSION env var unset)
 #   • Stdin payload has stop_hook_active=true (re-entrant stop hook)
-#   • Event is "stop" and DMUX_SUPPRESS_STOP=1 (or any OMX_TEAM_*
+#   • Event is "stop" and WMUX_SUPPRESS_STOP=1 (or any OMX_TEAM_*
 #     env var is set — loop-suppression for oh-my-codex team mode)
 #   • The event name isn't in the v1 recognized set
 
@@ -46,11 +46,11 @@ exec 2>/dev/null
 PLUGIN_VERSION="0.3.0"
 PLUGIN_PROTO_V=1
 
-DMUX_LOG_FILE="${DMUX_LOG_FILE:-$HOME/.dmux/dmux.log}"
-DMUX_LOG_MAX_BYTES="${DMUX_LOG_MAX_BYTES:-1048576}"
-DMUX_LOG_LOCK="${DMUX_LOG_FILE}.lock"
+WMUX_LOG_FILE="${WMUX_LOG_FILE:-$HOME/.wmux/wmux.log}"
+WMUX_LOG_MAX_BYTES="${WMUX_LOG_MAX_BYTES:-1048576}"
+WMUX_LOG_LOCK="${WMUX_LOG_FILE}.lock"
 
-mkdir -p "$(dirname "$DMUX_LOG_FILE")" 2>/dev/null
+mkdir -p "$(dirname "$WMUX_LOG_FILE")" 2>/dev/null
 
 EVENT="${1:-}"
 AGENT="${2:-codex}"
@@ -58,7 +58,7 @@ AGENT="${2:-codex}"
 HOOK_INPUT="$(cat 2>/dev/null || true)"
 
 _log_line() {
-    local dir="${DMUX_LOG_FILE%/*}"
+    local dir="${WMUX_LOG_FILE%/*}"
     [ -d "$dir" ] || return 0
     local line
     line="$(printf '[%s] agent=%s event=%s %s' \
@@ -66,17 +66,17 @@ _log_line() {
     if command -v flock >/dev/null 2>&1; then
         (
             flock -w 1 9 || exit 0
-            if [ -f "$DMUX_LOG_FILE" ]; then
+            if [ -f "$WMUX_LOG_FILE" ]; then
                 local sz
-                sz=$(wc -c <"$DMUX_LOG_FILE" 2>/dev/null || echo 0)
-                if [ "${sz:-0}" -gt "$DMUX_LOG_MAX_BYTES" ] 2>/dev/null; then
-                    mv -f "$DMUX_LOG_FILE" "${DMUX_LOG_FILE}.1" 2>/dev/null || true
+                sz=$(wc -c <"$WMUX_LOG_FILE" 2>/dev/null || echo 0)
+                if [ "${sz:-0}" -gt "$WMUX_LOG_MAX_BYTES" ] 2>/dev/null; then
+                    mv -f "$WMUX_LOG_FILE" "${WMUX_LOG_FILE}.1" 2>/dev/null || true
                 fi
             fi
-            printf '%s\n' "$line" >>"$DMUX_LOG_FILE" 2>/dev/null || true
-        ) 9>"$DMUX_LOG_LOCK"
+            printf '%s\n' "$line" >>"$WMUX_LOG_FILE" 2>/dev/null || true
+        ) 9>"$WMUX_LOG_LOCK"
     else
-        printf '%s\n' "$line" >>"$DMUX_LOG_FILE" 2>/dev/null || true
+        printf '%s\n' "$line" >>"$WMUX_LOG_FILE" 2>/dev/null || true
     fi
 }
 
@@ -140,9 +140,9 @@ fi
 
 # Loop-suppression for orchestrated team modes (e.g. oh-my-codex team mode
 # loops the leader's stop hook 20-50× per task; sending each to Warp = flood).
-# Generic override: set DMUX_SUPPRESS_STOP=1 from any loop runner.
+# Generic override: set WMUX_SUPPRESS_STOP=1 from any loop runner.
 if [ "$EVENT" = "stop" ]; then
-    if [ "${DMUX_SUPPRESS_STOP:-}" = "1" ] || \
+    if [ "${WMUX_SUPPRESS_STOP:-}" = "1" ] || \
        [ -n "${OMX_TEAM_WORKER:-}" ] || \
        [ -n "${OMX_TEAM_INTERNAL_WORKER:-}" ] || \
        [ -n "${OMX_TEAM_STATE_ROOT:-}" ] || \
@@ -371,12 +371,12 @@ wrap_for_tmux() {
 WRITE_ERR=""
 emit_to_tty() {
     local payload="$1"
-    { printf '%s' "$payload" > "$OUT_TTY"; } 2>/tmp/.dmux-write-err.$$
+    { printf '%s' "$payload" > "$OUT_TTY"; } 2>/tmp/.wmux-write-err.$$
     local rc=$?
-    if [ -s /tmp/.dmux-write-err.$$ ]; then
-        WRITE_ERR="$(head -1 /tmp/.dmux-write-err.$$)"
+    if [ -s /tmp/.wmux-write-err.$$ ]; then
+        WRITE_ERR="$(head -1 /tmp/.wmux-write-err.$$)"
     fi
-    rm -f /tmp/.dmux-write-err.$$
+    rm -f /tmp/.wmux-write-err.$$
     return $rc
 }
 
@@ -389,12 +389,12 @@ emit_to_tty "$(wrap_for_tmux "$OSC777")"
 # so an inline default that contains '{project}' gets parsed as '{project'
 # plus a literal tail, which then breaks {project} substitution downstream.
 # Use a -z guard instead so braces inside the default stay intact.
-[ -z "${DMUX_TOAST_STOP:-}" ]       && DMUX_TOAST_STOP='✅ {project} — {agent} done'
-[ -z "${DMUX_TOAST_PERMISSION:-}" ] && DMUX_TOAST_PERMISSION='⚠️ {project} — {agent} needs input'
-[ -z "${DMUX_TOAST_IDLE:-}" ]       && DMUX_TOAST_IDLE='💬 {project} — {agent} waiting'
-TOAST_STOP_TEMPLATE="$DMUX_TOAST_STOP"
-TOAST_PERMISSION_TEMPLATE="$DMUX_TOAST_PERMISSION"
-TOAST_IDLE_TEMPLATE="$DMUX_TOAST_IDLE"
+[ -z "${WMUX_TOAST_STOP:-}" ]       && WMUX_TOAST_STOP='✅ {project} — {agent} done'
+[ -z "${WMUX_TOAST_PERMISSION:-}" ] && WMUX_TOAST_PERMISSION='⚠️ {project} — {agent} needs input'
+[ -z "${WMUX_TOAST_IDLE:-}" ]       && WMUX_TOAST_IDLE='💬 {project} — {agent} waiting'
+TOAST_STOP_TEMPLATE="$WMUX_TOAST_STOP"
+TOAST_PERMISSION_TEMPLATE="$WMUX_TOAST_PERMISSION"
+TOAST_IDLE_TEMPLATE="$WMUX_TOAST_IDLE"
 
 _render_toast() {
     local tpl="$1"

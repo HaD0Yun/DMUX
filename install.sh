@@ -2,19 +2,19 @@
 set -eu
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-HOOK="$SCRIPT_DIR/hooks/dmux-event.sh"
-BRIDGE="$SCRIPT_DIR/hooks/dmux-codex-bridge.sh"
+HOOK="$SCRIPT_DIR/hooks/wmux-event.sh"
+BRIDGE="$SCRIPT_DIR/hooks/wmux-codex-bridge.sh"
 CLAUDE_SETTINGS="$HOME/.claude/settings.json"
 CODEX_HOOKS="$HOME/.codex/hooks.json"
 CODEX_CONFIG="$HOME/.codex/config.toml"
 OPENCODE_CONFIG="$HOME/.config/opencode/opencode.json"
 GEMINI_SETTINGS="$HOME/.gemini/settings.json"
-STATE_DIR="$HOME/.dmux/state"
+STATE_DIR="$HOME/.wmux/state"
 PREV_NOTIFY_FILE="$STATE_DIR/previous-codex-notify.txt"
-DMUX_SUBSTR="dmux-event.sh"
+WMUX_SUBSTR="wmux-event.sh"
 
 MODE=""
-ASSUME_YES="${DMUX_YES:-0}"
+ASSUME_YES="${WMUX_YES:-0}"
 for arg in "$@"; do
     case "$arg" in
         install|--install)         MODE=install ;;
@@ -23,7 +23,7 @@ for arg in "$@"; do
         -h|--help)
             printf '\nUsage: %s [install | --uninstall] [--yes]\n\n' "$0"
             printf '  --yes, -y    Non-interactive (assume "yes" to confirmation prompt).\n'
-            printf '               Same as setting DMUX_YES=1 in the environment.\n'
+            printf '               Same as setting WMUX_YES=1 in the environment.\n'
             printf '               Required for unattended use (CI, AI agents, scripts).\n\n'
             exit 0
             ;;
@@ -45,7 +45,7 @@ header() { printf '\n%s%s%s\n' "$c_bold" "$*" "$c_off"; }
 
 chmod +x "$HOOK" "$BRIDGE" 2>/dev/null || true
 
-header "🔔 DMUX ${MODE}"
+header "🔔 Wmux ${MODE}"
 
 if ! command -v jq >/dev/null 2>&1; then
     printf '  %s!%s jq is required for safe config merging. Install it first:\n' "$c_skip" "$c_off"
@@ -64,7 +64,7 @@ fi
 backup_once() {
     local file="$1"
     [ -f "$file" ] || return 0
-    local bak="${file}.bak-dmux-$(date +%Y%m%d-%H%M%S)"
+    local bak="${file}.bak-wmux-$(date +%Y%m%d-%H%M%S)"
     cp "$file" "$bak"
     note "    backup → $bak"
 }
@@ -121,7 +121,7 @@ set_codex_notify() {
         local current
         current="$(grep -E '^[[:space:]]*notify[[:space:]]*=' "$CODEX_CONFIG" | head -1)"
         if echo "$current" | grep -q "$BRIDGE"; then
-            skip "codex notify already points at the DMUX bridge"
+            skip "codex notify already points at the Wmux bridge"
             return 0
         fi
         if [ ! -f "$PREV_NOTIFY_FILE" ]; then
@@ -131,7 +131,7 @@ set_codex_notify() {
         note "    previous: $current"
         # Parse the inline argv array out of the TOML notify line and persist
         # it to a state file so the bridge can auto-chain without the user
-        # having to set DMUX_CODEX_INNER by hand.
+        # having to set WMUX_CODEX_INNER by hand.
         local inner
         inner="$(echo "$current" | sed -E 's/^[^=]*=[[:space:]]*\[(.*)\][[:space:]]*$/\1/' | tr -d '"' | sed 's/,//g')"
         local inner_path
@@ -163,10 +163,10 @@ PY
         fi
         sed -i -E 's|^[[:space:]]*notify[[:space:]]*=.*|notify = ["'"$target"'"]|' "$CODEX_CONFIG"
         if [ -s "$argv_file" ]; then
-            ok "codex notify chained — previous handler will fire alongside DMUX"
+            ok "codex notify chained — previous handler will fire alongside Wmux"
             note "    chain argv: $(tr '\n' ' ' < "$argv_file" | sed 's/ $//')"
         elif [ -n "$inner_path" ] && [ -f "$inner_path" ]; then
-            note "    chain via: export DMUX_CODEX_INNER=$inner_path"
+            note "    chain via: export WMUX_CODEX_INNER=$inner_path"
         fi
     else
         printf '__NO_PREVIOUS_NOTIFY__\n' > "$PREV_NOTIFY_FILE"
@@ -187,8 +187,8 @@ unset_codex_notify() {
         sed -i -E "s|^[[:space:]]*notify[[:space:]]*=.*|$prev_escaped|" "$CODEX_CONFIG"
         ok "restored codex notify to previous value"
     else
-        sed -i -E '\|^[[:space:]]*notify[[:space:]]*=.*dmux-codex-bridge\.sh.*|d' "$CODEX_CONFIG"
-        ok "removed DMUX codex notify directive"
+        sed -i -E '\|^[[:space:]]*notify[[:space:]]*=.*wmux-codex-bridge\.sh.*|d' "$CODEX_CONFIG"
+        ok "removed Wmux codex notify directive"
     fi
     rm -f "$PREV_NOTIFY_FILE" "$STATE_DIR/codex-inner.argv"
 }
@@ -221,7 +221,7 @@ else
     printf '\n  %s? %sProceed with %suninstall%s for the agents above? [Y/n] ' "$c_bold" "$c_off" "$c_bold" "$c_off"
 fi
 if [ "$ASSUME_YES" = "1" ]; then
-    printf 'y (auto via --yes / DMUX_YES)\n'
+    printf 'y (auto via --yes / WMUX_YES)\n'
     ANS="y"
 else
     read -r ANS || ANS=""
@@ -234,37 +234,37 @@ if [ "$MODE" = "install" ]; then
     header "Wiring agents"
     if $WIRE_CLAUDE; then
         backup_once "$CLAUDE_SETTINGS"
-        merge_json_hooks "$CLAUDE_SETTINGS" SessionStart      "\$HOME/.dmux/dmux-event.sh session_start claude"      ""
-        merge_json_hooks "$CLAUDE_SETTINGS" Stop              "\$HOME/.dmux/dmux-event.sh stop claude"               ""
-        merge_json_hooks "$CLAUDE_SETTINGS" Notification      "\$HOME/.dmux/dmux-event.sh idle_prompt claude"        ""
-        merge_json_hooks "$CLAUDE_SETTINGS" PermissionRequest "\$HOME/.dmux/dmux-event.sh permission_request claude" ""
+        merge_json_hooks "$CLAUDE_SETTINGS" SessionStart      "\$HOME/.wmux/wmux-event.sh session_start claude"      ""
+        merge_json_hooks "$CLAUDE_SETTINGS" Stop              "\$HOME/.wmux/wmux-event.sh stop claude"               ""
+        merge_json_hooks "$CLAUDE_SETTINGS" Notification      "\$HOME/.wmux/wmux-event.sh idle_prompt claude"        ""
+        merge_json_hooks "$CLAUDE_SETTINGS" PermissionRequest "\$HOME/.wmux/wmux-event.sh permission_request claude" ""
         ok "Claude Code wired"
     fi
     if $WIRE_CODEX; then
         backup_once "$CODEX_HOOKS"
-        merge_json_hooks "$CODEX_HOOKS" SessionStart      "\$HOME/.dmux/dmux-event.sh session_start codex"      "startup|resume"
-        merge_json_hooks "$CODEX_HOOKS" PermissionRequest "\$HOME/.dmux/dmux-event.sh permission_request codex" ""
+        merge_json_hooks "$CODEX_HOOKS" SessionStart      "\$HOME/.wmux/wmux-event.sh session_start codex"      "startup|resume"
+        merge_json_hooks "$CODEX_HOOKS" PermissionRequest "\$HOME/.wmux/wmux-event.sh permission_request codex" ""
         ok "Codex hooks.json wired"
         set_codex_notify "$BRIDGE"
     fi
     if $WIRE_OPENCODE; then
         mkdir -p "$(dirname "$OPENCODE_CONFIG")"
         backup_once "$OPENCODE_CONFIG"
-        merge_json_hooks "$OPENCODE_CONFIG" SessionStart "\$HOME/.dmux/dmux-event.sh session_start opencode" ""
-        merge_json_hooks "$OPENCODE_CONFIG" Stop         "\$HOME/.dmux/dmux-event.sh stop opencode"          ""
+        merge_json_hooks "$OPENCODE_CONFIG" SessionStart "\$HOME/.wmux/wmux-event.sh session_start opencode" ""
+        merge_json_hooks "$OPENCODE_CONFIG" Stop         "\$HOME/.wmux/wmux-event.sh stop opencode"          ""
         ok "OpenCode wired"
     fi
     if $WIRE_GEMINI; then
         backup_once "$GEMINI_SETTINGS"
-        merge_json_hooks "$GEMINI_SETTINGS" session_start      "\$HOME/.dmux/dmux-event.sh session_start gemini"      ""
-        merge_json_hooks "$GEMINI_SETTINGS" stop               "\$HOME/.dmux/dmux-event.sh stop gemini"               ""
-        merge_json_hooks "$GEMINI_SETTINGS" user_prompt_submit "\$HOME/.dmux/dmux-event.sh prompt_submit gemini"      ""
+        merge_json_hooks "$GEMINI_SETTINGS" session_start      "\$HOME/.wmux/wmux-event.sh session_start gemini"      ""
+        merge_json_hooks "$GEMINI_SETTINGS" stop               "\$HOME/.wmux/wmux-event.sh stop gemini"               ""
+        merge_json_hooks "$GEMINI_SETTINGS" user_prompt_submit "\$HOME/.wmux/wmux-event.sh prompt_submit gemini"      ""
         ok "Gemini CLI wired"
     fi
 
     # tmux requires `allow-passthrough on` (default off since tmux 3.3) for
     # OSC 9 / OSC 777 sequences to reach Warp through a tmux pane. Without
-    # this DMUX writes the right bytes and tmux silently drops them.
+    # this Wmux writes the right bytes and tmux silently drops them.
     if command -v tmux >/dev/null 2>&1; then
         header "tmux passthrough"
         TMUX_CONF="${TMUX_CONF:-$HOME/.tmux.conf}"
@@ -273,7 +273,7 @@ if [ "$MODE" = "install" ]; then
         else
             backup_once "$TMUX_CONF"
             {
-                printf '\n# DMUX: required so OSC 9 / OSC 777 toasts reach Warp through tmux.\n'
+                printf '\n# Wmux: required so OSC 9 / OSC 777 toasts reach Warp through tmux.\n'
                 printf 'set -g allow-passthrough on\n'
             } >> "$TMUX_CONF"
             ok "appended allow-passthrough on -> $TMUX_CONF"
@@ -309,16 +309,16 @@ if [ "$MODE" = "install" ]; then
     say ""
     say "  Smoke test (must run in a real terminal, not piped):"
     printf '    %s%s stop claude < /dev/tty%s\n' "$c_dim" "$HOOK" "$c_off"
-    printf '    %stail -1 \$HOME/.dmux/dmux.log%s\n\n'   "$c_dim"        "$c_off"
+    printf '    %stail -1 \$HOME/.wmux/wmux.log%s\n\n'   "$c_dim"        "$c_off"
 else
-    header "Removing DMUX hooks"
-    if $WIRE_CLAUDE   && [ -f "$CLAUDE_SETTINGS" ];   then backup_once "$CLAUDE_SETTINGS";   strip_json_hooks "$CLAUDE_SETTINGS"   "$DMUX_SUBSTR"; ok "Claude Code unwired";       fi
-    if $WIRE_CODEX    && [ -f "$CODEX_HOOKS" ];       then backup_once "$CODEX_HOOKS";       strip_json_hooks "$CODEX_HOOKS"       "$DMUX_SUBSTR"; ok "Codex hooks.json unwired";  fi
+    header "Removing Wmux hooks"
+    if $WIRE_CLAUDE   && [ -f "$CLAUDE_SETTINGS" ];   then backup_once "$CLAUDE_SETTINGS";   strip_json_hooks "$CLAUDE_SETTINGS"   "$WMUX_SUBSTR"; ok "Claude Code unwired";       fi
+    if $WIRE_CODEX    && [ -f "$CODEX_HOOKS" ];       then backup_once "$CODEX_HOOKS";       strip_json_hooks "$CODEX_HOOKS"       "$WMUX_SUBSTR"; ok "Codex hooks.json unwired";  fi
     if $WIRE_CODEX; then unset_codex_notify; fi
-    if $WIRE_OPENCODE && [ -f "$OPENCODE_CONFIG" ];   then backup_once "$OPENCODE_CONFIG";   strip_json_hooks "$OPENCODE_CONFIG"   "$DMUX_SUBSTR"; ok "OpenCode unwired";          fi
-    if $WIRE_GEMINI   && [ -f "$GEMINI_SETTINGS" ];   then backup_once "$GEMINI_SETTINGS";   strip_json_hooks "$GEMINI_SETTINGS"   "$DMUX_SUBSTR"; ok "Gemini CLI unwired";        fi
+    if $WIRE_OPENCODE && [ -f "$OPENCODE_CONFIG" ];   then backup_once "$OPENCODE_CONFIG";   strip_json_hooks "$OPENCODE_CONFIG"   "$WMUX_SUBSTR"; ok "OpenCode unwired";          fi
+    if $WIRE_GEMINI   && [ -f "$GEMINI_SETTINGS" ];   then backup_once "$GEMINI_SETTINGS";   strip_json_hooks "$GEMINI_SETTINGS"   "$WMUX_SUBSTR"; ok "Gemini CLI unwired";        fi
     say ""
-    say "  All DMUX wiring removed. Your other hooks are preserved."
+    say "  All Wmux wiring removed. Your other hooks are preserved."
     say "  This repo can be safely deleted: rm -rf $SCRIPT_DIR"
     say ""
 fi
